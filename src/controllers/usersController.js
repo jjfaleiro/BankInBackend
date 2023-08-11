@@ -5,41 +5,25 @@ const AppError = require('../utils/AppError')
 //Está sendo utilizado no update
 const sqliteConnection = require('../database/sqlite')
 
-//Nova lógica de verificação - e criação - conexão com o bd
+//Conexão com o bd
 const UserRepository = require('../repositories/userRepository')
 
+//Abstração da lógica da minha aplicação sem dependência
+const UserCreateService = require('../services/userCreateService')
 
 class UsersController {
   async create(request, response) {
+    //Ou seja esta ficando literalmente só a requisição e resposta
     const { name, cpf, email, password } = request.body
-    
-    //Instanciando a nova lógica de verificação de email, cpf e criação/update - com conexão com o db
+
+    //Instanciando o minha conexão com o BD
     const userRepository = new UserRepository()
 
+    //Instanciando a abstração da lógica da minha aplicação sem dependência - passando para meu construtor qual será a conexão com o BD seja ela qual for
+    const userCreateService = new UserCreateService(userRepository)
 
-    if (!name || !password || !email || !cpf) {
-      throw new AppError(
-        'Necessário inserir nome, CPF, email e CPF para cadastro. Tente novamente!'
-      )
-    }
-
-    const checkUserCpf = await userRepository.findByCPF(cpf)
-
-    const checkUserEmail = await userRepository.findByEmail(email)
-
-
-    if (checkUserCpf) {
-      throw new AppError('Este CPF já está em uso!!!')
-    }
-
-    if (checkUserEmail) {
-      throw new AppError('Este e-mail já está em uso!!!')
-    }
-
-    const hashedPassword = await hash(password, 8)
-
-    await userRepository.create({name, cpf, email, password: hashedPassword})
-
+    //Agora vou executar minha lógica de fato - que já estará utilizando a conexão com o bd de forma abstrata
+    await userCreateService.execute({name, cpf, email, password})
 
     return response.status(201).json({
       message: 'Correntista cadastrado com sucesso!!! Bem vindo ao BankIn!'
@@ -47,9 +31,10 @@ class UsersController {
   }
 
   async update(request, response) {
-    const {name, cpf, email, password, passwordCheck, old_password} = request.body
+    const { name, cpf, email, password, passwordCheck, old_password } =
+      request.body
 
-    console.log(name,cpf,email,password,old_password)
+    console.log(name, cpf, email, password, old_password)
 
     //const { account } = request.params
     //Agora capturo a conta do usuário de dentro do middleware
@@ -61,61 +46,84 @@ class UsersController {
     const user_account = request.user.cpf
     console.log(user_account)
 
+    const accountExist = await database.get(
+      `SELECT * FROM accountHolder WHERE cpf = (?)`,
+      [user_account.toString()]
+    )
 
-    const accountExist = await database.get(`SELECT * FROM accountHolder WHERE cpf = (?)`, [user_account.toString()]) 
-
-    if(!accountExist) {
+    if (!accountExist) {
       throw new AppError(`Conta informada ${accountExist} não existe !!!`)
     }
-    
-    if(!name || !cpf) {
-      throw new AppError(`Necessário informar nome e cpf para validar alterações!!!`)
+
+    if (!name || !cpf) {
+      throw new AppError(
+        `Necessário informar nome e cpf para validar alterações!!!`
+      )
     }
 
-    const checkingNameAndCPF = await database.get(`SELECT * FROM accountHolder WHERE name = (?) AND cpf = (?)`, [ name, cpf ])
+    const checkingNameAndCPF = await database.get(
+      `SELECT * FROM accountHolder WHERE name = (?) AND cpf = (?)`,
+      [name, cpf]
+    )
 
-    if(!checkingNameAndCPF) {
+    if (!checkingNameAndCPF) {
       throw new AppError(`Nome ou CPF estão incorretos. Tente Novamente!`)
     }
 
+    const userWithUpdateEmail = await database.get(
+      `SELECT * FROM accountHolder WHERE email = (?)`,
+      [email]
+    )
 
-    const userWithUpdateEmail = await database.get(`SELECT * FROM accountHolder WHERE email = (?)`, [email])
-
-    if(userWithUpdateEmail && userWithUpdateEmail.account !== accountExist.account) {
+    if (
+      userWithUpdateEmail &&
+      userWithUpdateEmail.account !== accountExist.account
+    ) {
       throw new AppError(`Este e-mail já está em uso por outro usuário!!!`)
     }
 
     accountExist.email = email ?? accountExist.email
 
-    if(!old_password) {
-      throw new AppError(`Você precisa informar a senha atual para alterar email!!!`)
+    if (!old_password) {
+      throw new AppError(
+        `Você precisa informar a senha atual para alterar email!!!`
+      )
     }
 
-    if(password && passwordCheck) {
-      const comparePasswords = password === passwordCheck 
-      if(!comparePasswords) {
-        throw new AppError("Erro - senhas inseridas para alteração não estão iguais!!!")
+    if (password && passwordCheck) {
+      const comparePasswords = password === passwordCheck
+      if (!comparePasswords) {
+        throw new AppError(
+          'Erro - senhas inseridas para alteração não estão iguais!!!'
+        )
       }
     }
 
-    if(password && passwordCheck && old_password) {
-      const checkOldPassword = await compare(old_password, accountExist.password)
+    if (password && passwordCheck && old_password) {
+      const checkOldPassword = await compare(
+        old_password,
+        accountExist.password
+      )
 
-      if(!checkOldPassword) {
+      if (!checkOldPassword) {
         throw new AppError(`A senha atual está incorreta`)
       }
 
       accountExist.password = await hash(password, 8)
     }
 
-    
+    await database.run(
+      `UPDATE accountHolder SET email = (?), password = (?), updated_at = DATETIME('now') WHERE cpf = (?)`,
+      [accountExist.email, accountExist.password, user_account.toString()]
+    )
 
-    await database.run(`UPDATE accountHolder SET email = (?), password = (?), updated_at = DATETIME('now') WHERE cpf = (?)`, [accountExist.email, accountExist.password, user_account.toString()])
-
-    const user = await database.get(`SELECT * FROM accountHolder WHERE cpf = (?)`, [user_account.toString()])
+    const user = await database.get(
+      `SELECT * FROM accountHolder WHERE cpf = (?)`,
+      [user_account.toString()]
+    )
 
     console.log(user)
- 
+
     return response.json(user)
   }
 }
