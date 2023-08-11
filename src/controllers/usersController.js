@@ -2,13 +2,20 @@ const { hash, compare } = require('bcryptjs')
 
 const AppError = require('../utils/AppError')
 
+//Está sendo utilizado no update
 const sqliteConnection = require('../database/sqlite')
+
+//Nova lógica de verificação - e criação - conexão com o bd
+const UserRepository = require('../repositories/userRepository')
+
 
 class UsersController {
   async create(request, response) {
     const { name, cpf, email, password } = request.body
+    
+    //Instanciando a nova lógica de verificação de email, cpf e criação/update - com conexão com o db
+    const userRepository = new UserRepository()
 
-    const database = await sqliteConnection()
 
     if (!name || !password || !email || !cpf) {
       throw new AppError(
@@ -16,30 +23,23 @@ class UsersController {
       )
     }
 
-    const checkUserEmail = await database.get(
-      `SELECT * FROM accountHolder WHERE email = (?)`,
-      [email]
-    )
+    const checkUserCpf = await userRepository.findByCPF(cpf)
 
-    if (checkUserEmail) {
-      throw new AppError('Este e-mail já está em uso!!!')
-    }
+    const checkUserEmail = await userRepository.findByEmail(email)
 
-    const checkUserCpf = await database.get(
-      `SELECT * FROM accountHolder WHERE cpf = (?)`,
-      [cpf]
-    )
 
     if (checkUserCpf) {
       throw new AppError('Este CPF já está em uso!!!')
     }
 
+    if (checkUserEmail) {
+      throw new AppError('Este e-mail já está em uso!!!')
+    }
+
     const hashedPassword = await hash(password, 8)
 
-    await database.run(
-      `INSERT INTO accountHolder (name, cpf, email, password) VALUES (?,?,?,?)`,
-      [name, cpf, email, hashedPassword]
-    )
+    await userRepository.create({name, cpf, email, password: hashedPassword})
+
 
     return response.status(201).json({
       message: 'Correntista cadastrado com sucesso!!! Bem vindo ao BankIn!'
@@ -55,10 +55,12 @@ class UsersController {
     //Agora capturo a conta do usuário de dentro do middleware
     // const user_account = request.user.account
 
+    //Instanciando a nova lógica de verificaçã de email, cpf e criação/update
+    const database = new sqliteConnection()
+
     const user_account = request.user.cpf
     console.log(user_account)
 
-    const database = await sqliteConnection()
 
     const accountExist = await database.get(`SELECT * FROM accountHolder WHERE cpf = (?)`, [user_account.toString()]) 
 
