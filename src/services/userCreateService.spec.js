@@ -33,7 +33,7 @@ describe('UserCreateService', () => {
     //Desta forma vou capturar o retorno do meu serviço
     const userCreated = await userCreateService.execute(user)
 
-    console.log(userCreated)
+    // console.log(userCreated)
 
     //Minha expectativa é que o userCreated tenha uma propriedade id
     //ter propriedade (toHaveProperty)
