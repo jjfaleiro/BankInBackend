@@ -1,4 +1,4 @@
 node_modules
 .env
-userRepositoryInMemory.js
-userCreateService.spec.js
+./src/repositories/userRepositoryInMemory.js
+./src/services/userCreateService.spec.js
