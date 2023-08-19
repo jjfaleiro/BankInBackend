@@ -34,22 +34,23 @@ class UsersController {
     const { name, cpf, email, password, passwordCheck, old_password } =
       request.body
 
-    console.log(name, cpf, email, password, old_password)
+    console.log("Só chegou aqui" + name, cpf, email, password, old_password)
 
     //const { account } = request.params
     //Agora capturo a conta do usuário de dentro do middleware
     // const user_account = request.user.account
 
     //Instanciando a nova lógica de verificaçã de email, cpf e criação/update
-    const database = new sqliteConnection()
+    const database = await sqliteConnection() 
 
     const user_account = request.user.cpf
-    console.log(user_account)
+    console.log(`Passou aqui ${user_account}`)
 
     const accountExist = await database.get(
       `SELECT * FROM accountHolder WHERE cpf = (?)`,
       [user_account.toString()]
     )
+    console.log(`Passou aqui 2`)
 
     if (!accountExist) {
       throw new AppError(`Conta informada ${accountExist} não existe !!!`)
