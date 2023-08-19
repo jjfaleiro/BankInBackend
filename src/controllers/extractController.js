@@ -233,7 +233,7 @@ class ExtractController {
       throw new AppError(
         'Valor inserido é insuficiente. Faça um deposito para completar o valor!'
       )
-      console.log("Estranho")
+      // console.log("Estranho")
 
     }
 
@@ -281,7 +281,7 @@ class ExtractController {
     extractController.create({
       cpf: user_account.toString(),
       debts: -value,
-      description: 'Transferência'
+      description: 'Transferência realizada'
     })
 
     console.log(`Error XYZ`)

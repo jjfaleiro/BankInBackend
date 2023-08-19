@@ -58,8 +58,8 @@ class BankController {
     ExtractController.create({
       cpf: accountExist.cpf,
       debts: deposit,
-      description: 'Deposito'
-    })
+      description: 'Depósito'
+    }) 
 
     bank.deposit = 0
 
